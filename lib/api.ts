@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create axios instance
 const api = axios.create({
-  baseURL: "/api", // Use Next.js API routes
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",

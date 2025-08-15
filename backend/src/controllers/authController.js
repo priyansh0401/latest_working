@@ -3,7 +3,7 @@ const User = require('../models/User');
 
 // Generate JWT token
 const generateToken = (userId) => {
-    return jwt.sign({ id: userId }, process.env.JWT_SECRET || 'your-secret-key', {
+    return jwt.sign({ id: userId }, process.env.SECRET_KEY || 'your-secret-key', {
         expiresIn: '1d'
     });
 };
