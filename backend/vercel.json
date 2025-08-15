@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/server.js"
+    }
+  ],
+  "env": {
+    "MONGODB_URI": "mongodb+srv://pgoelbe22:imemyself@cluster0.5exvebt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+    "MONGODB_NAME": "guardian_eye",
+    "SECRET_KEY": "",
+    "DEBUG": "False"
+  }
+}
