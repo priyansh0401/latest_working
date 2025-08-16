@@ -31,13 +31,8 @@ export default function DashboardLayout({
     );
   }
 
-  // TEMPORARILY BYPASS AUTH FOR TESTING
-  const testUser = { id: "1", email: "test@test.com", name: "Test User", role: "admin" };
-  const currentUser = user || testUser;
-  const isUserAuthenticated = isAuthenticated || true;
-
   // Redirect to login if not authenticated
-  if (!isUserAuthenticated) {
+  if (!isAuthenticated) {
     if (typeof window !== "undefined") {
       window.location.href = "/auth/login";
     }

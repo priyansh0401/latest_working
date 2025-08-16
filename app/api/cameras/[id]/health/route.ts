@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { Camera } from "@/models/camera";
+import { spawn } from "child_process";
 
 // Test camera connectivity and health
 async function testCameraHealth(camera: any): Promise<{
@@ -13,58 +14,14 @@ async function testCameraHealth(camera: any): Promise<{
   try {
     // For RTSP cameras, we can test the connection
     if (camera.camera_type === "rtsp" || camera.camera_type === "ip") {
-      // Simple ping-like test by trying to connect to the camera's IP
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-      try {
-        // Test if we can reach the camera's web interface or RTSP port
-        const testUrl = camera.ip_address.startsWith('http') 
-          ? camera.ip_address 
-          : `http://${camera.ip_address}`;
-        
-        const response = await fetch(testUrl, {
-          method: "HEAD",
-          signal: controller.signal,
-          headers: {
-            "User-Agent": "CamsOne-HealthCheck/1.0",
-          },
-        });
-
-        clearTimeout(timeoutId);
-        const latency = Date.now() - startTime;
-
-        // Even if we get a 401 or 403, it means the camera is responding
-        if (response.status < 500) {
-          return {
-            isHealthy: true,
-            latency,
-          };
-        } else {
-          return {
-            isHealthy: false,
-            latency,
-            error: `HTTP ${response.status}`,
-          };
-        }
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        const latency = Date.now() - startTime;
-
-        if (fetchError.name === "AbortError") {
-          return {
-            isHealthy: false,
-            latency,
-            error: "Connection timeout",
-          };
-        }
-
-        return {
-          isHealthy: false,
-          latency,
-          error: fetchError.message || "Connection failed",
-        };
-      }
+      const rtspUrl = camera.getFullRtspUrl();
+      const isConnected = await testCameraConnection(rtspUrl);
+      const latency = Date.now() - startTime;
+      return {
+        isHealthy: isConnected,
+        latency,
+        error: isConnected ? undefined : "Failed to connect to stream",
+      };
     }
 
     // For other camera types, assume healthy if in database
@@ -79,6 +36,59 @@ async function testCameraHealth(camera: any): Promise<{
       error: error.message || "Health check failed",
     };
   }
+}
+
+// Function to test camera connection using FFmpeg (cross-platform)
+async function testCameraConnection(rtspUrl: string): Promise<boolean> {
+  console.log("Testing camera connection:", rtspUrl);
+  return new Promise<boolean>((resolve) => {
+    const testProc = spawn("ffmpeg", [
+      "-loglevel",
+      "error",
+      "-rtsp_transport",
+      "tcp",
+      "-i",
+      rtspUrl,
+      "-t",
+      "1",
+      "-f",
+      "null",
+      "-",
+    ]);
+
+    let didResolve = false;
+    const timeoutMs = 8000;
+    const timer = setTimeout(() => {
+      if (didResolve) return;
+      didResolve = true;
+      try {
+        testProc.kill();
+      } catch {}
+      console.error("Camera connection test timed out");
+      resolve(false);
+    }, timeoutMs);
+
+    testProc.on("close", (code) => {
+      if (didResolve) return;
+      didResolve = true;
+      clearTimeout(timer);
+      if (code === 0) {
+        console.log("Camera connection test successful");
+        resolve(true);
+      } else {
+        console.error("Camera connection test failed with code:", code);
+        resolve(false);
+      }
+    });
+
+    testProc.on("error", (err) => {
+      if (didResolve) return;
+      didResolve = true;
+      clearTimeout(timer);
+      console.error("Camera connection test process error:", err);
+      resolve(false);
+    });
+  });
 }
 
 export async function HEAD(

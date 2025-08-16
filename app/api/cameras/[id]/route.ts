@@ -138,10 +138,6 @@ export async function PUT(
     // Connect to database
     await connectToDatabase();
 
-    // Generate stream_url if not provided or if IP/type changed
-    if (!data.stream_url || data.ip_address || data.camera_type) {
-      data.stream_url = generateStreamUrl(data);
-    }
 
     // Update camera (only if owned by user)
     const camera = await Camera.findOneAndUpdate(
@@ -165,45 +161,3 @@ export async function PUT(
   }
 }
 
-// Helper function to generate stream URL (same as in main cameras route)
-function generateStreamUrl(cameraData: any): string {
-  const { ip_address, camera_type, username, password, rtsp_port, rtsp_path } = cameraData;
-
-  // If ip_address is already a complete URL, use it
-  if (
-    ip_address.startsWith("rtsp://") ||
-    ip_address.startsWith("http://") ||
-    ip_address.startsWith("https://")
-  ) {
-    return ip_address;
-  }
-
-  // Build RTSP URL
-  const auth = username && password ? `${username}:${password}@` : "";
-  const port = rtsp_port || 554;
-
-  // Use custom rtsp_path if provided, otherwise get default path based on camera type
-  let path = rtsp_path;
-  if (!path) {
-    switch (camera_type) {
-      case "hikvision":
-        path = "/Streaming/Channels/101";
-        break;
-      case "dahua":
-        path = "/cam/realmonitor?channel=1&subtype=0";
-        break;
-      case "onvif":
-        path = "/onvif/stream1";
-        break;
-      case "ip":
-        path = "/stream1";
-        break;
-      case "rtsp":
-      default:
-        path = "/stream";
-        break;
-    }
-  }
-
-  return `rtsp://${auth}${ip_address}:${port}${path}`;
-}
