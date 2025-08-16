@@ -99,7 +99,7 @@ async function checkFFmpegAvailable(): Promise<boolean> {
 }
 
 // Function to start FFmpeg process for HLS streaming
-function startFFmpeg(rtspUrl: string, cameraId: string, ffmpegOptions: string) {
+function startFFmpeg(rtspUrl: string, cameraId: string) {
   console.log("Starting FFmpeg with RTSP URL:", rtspUrl);
 
   // Create camera-specific directory
@@ -114,11 +114,6 @@ function startFFmpeg(rtspUrl: string, cameraId: string, ffmpegOptions: string) {
   console.log("HLS playlist path:", playlistPath);
   console.log("HLS segment path:", segmentPath);
 
-  const options = ffmpegOptions
-    .replace('{playlistPath}', playlistPath)
-    .replace('{segmentPath}', segmentPath)
-    .split(' ');
-
   const ffmpeg = spawn("ffmpeg", [
     "-rtsp_transport",
     "tcp",
@@ -126,7 +121,52 @@ function startFFmpeg(rtspUrl: string, cameraId: string, ffmpegOptions: string) {
     "5000000", // 5s RTSP I/O timeout
     "-i",
     rtspUrl,
-    ...options,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-tune",
+    "zerolatency",
+    "-profile:v",
+    "baseline",
+    "-level",
+    "3.0",
+    "-pix_fmt",
+    "yuv420p",
+    "-g",
+    "30", // GOP size
+    "-keyint_min",
+    "30",
+    "-sc_threshold",
+    "0",
+    // Many RTSP streams are video-only; disable audio to be robust
+    "-an",
+    "-f",
+    "hls",
+    "-hls_time",
+    "1",
+    "-hls_list_size",
+    "3",
+    "-hls_flags",
+    "delete_segments+program_date_time+append_list+independent_segments",
+    "-hls_delete_threshold",
+    "1",
+    "-hls_start_number_source",
+    "epoch",
+    "-hls_segment_type",
+    "mpegts",
+    "-hls_segment_filename",
+    segmentPath,
+    "-hls_playlist_type",
+    "event",
+    "-hls_allow_cache",
+    "0",
+    "-reconnect",
+    "1",
+    "-reconnect_streamed",
+    "1",
+    "-reconnect_delay_max",
+    "5",
     playlistPath,
   ]);
 
@@ -235,7 +275,7 @@ export async function GET(
     const hlsUrl = `/api/media/live/${id}/index.m3u8`;
 
     // Start FFmpeg process
-    const ffmpeg = startFFmpeg(rtspUrl, id, camera.ffmpeg_options);
+    const ffmpeg = startFFmpeg(rtspUrl, id);
 
     // Store stream info
     activeStreams.set(id, {

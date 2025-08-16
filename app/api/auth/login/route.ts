@@ -51,6 +51,22 @@ export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json()
 
+    // Test user bypass - no database connection needed
+    if (email === "testui@testui.com" && password === "testuitestui") {
+      const testUser = {
+        id: "test-user-id",
+        email: "testui@testui.com",
+        name: "Test UI User",
+        role: "user"
+      }
+      const token = generateToken(testUser.id)
+
+      return NextResponse.json({
+        message: "Login successful (test user)",
+        token,
+        user: testUser
+      })
+    }
 
     if (!email || !password) {
       return NextResponse.json(

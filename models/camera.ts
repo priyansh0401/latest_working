@@ -51,10 +51,6 @@ const cameraSchema = new mongoose.Schema(
       type: String,
       default: "/stream",
     },
-    ffmpeg_options: {
-      type: String,
-      default: "-c:v libx264 -preset veryfast -tune zerolatency -profile:v baseline -level 3.0 -pix_fmt yuv420p -g 30 -keyint_min 30 -sc_threshold 0 -an -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments+program_date_time+append_list+independent_segments -hls_delete_threshold 1 -hls_start_number_source epoch -hls_segment_type mpegts -hls_playlist_type event -hls_allow_cache 0 -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    },
     user: {
       type: String,
       required: true,
@@ -72,56 +68,25 @@ cameraSchema.index({ camera_type: 1 });
 
 // Add a method to get the full RTSP URL
 cameraSchema.methods.getFullRtspUrl = function () {
-  const { ip_address, camera_type, username, password, rtsp_port, rtsp_path } = this;
-
-  // If ip_address is already a complete URL, use it
-  if (
-    ip_address.startsWith("rtsp://") ||
-    ip_address.startsWith("http://") ||
-    ip_address.startsWith("https://")
-  ) {
-    // If auth needs to be injected, do it carefully
-    if (username && password) {
-      const auth = `${username}:${password}@`;
-      if (ip_address.includes("@")) {
-        // URL already has credentials, replace them
-        return ip_address.replace(/rtsp:\/\/(.*)@/, `rtsp://${auth}`);
-      } else {
-        // Inject credentials
-        return ip_address.replace("rtsp://", `rtsp://${auth}`);
-      }
-    }
-    return ip_address;
+  // Clean the IP address - remove any existing rtsp:// prefix
+  let cleanIp = this.ip_address;
+  if (cleanIp && cleanIp.startsWith("rtsp://")) {
+    cleanIp = cleanIp.replace(/^rtsp:\/\//, "");
   }
 
-  // Build RTSP URL
-  const auth = username && password ? `${username}:${password}@` : "";
-  const port = rtsp_port || 554;
+  // Build RTSP URL based on camera type
+  const auth =
+    this.username && this.password ? `${this.username}:${this.password}@` : "";
+  const port = this.rtsp_port || 554;
 
-  // Use custom rtsp_path if provided, otherwise get default path based on camera type
-  let path = rtsp_path;
-  if (!path) {
-    switch (camera_type) {
-      case "hikvision":
-        path = "/Streaming/Channels/101";
-        break;
-      case "dahua":
-        path = "/cam/realmonitor?channel=1&subtype=0";
-        break;
-      case "onvif":
-        path = "/onvif/stream1";
-        break;
-      case "ip":
-        path = "/stream1";
-        break;
-      case "rtsp":
-      default:
-        path = "/stream";
-        break;
-    }
-  }
+  // Use custom rtsp_path if provided, otherwise use default
+  const path = this.rtsp_path || this.getDefaultRtspPath();
 
-  return `rtsp://${auth}${ip_address}:${port}${path}`;
+  const constructedUrl = `rtsp://${auth}${cleanIp}:${port}${path}`;
+  console.log("Constructed RTSP URL:", constructedUrl);
+  console.log("Using path:", path);
+
+  return constructedUrl;
 };
 
 // Add a method to get default RTSP path based on camera type
