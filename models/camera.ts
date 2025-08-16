@@ -68,23 +68,25 @@ cameraSchema.index({ camera_type: 1 });
 
 // Add a method to get the full RTSP URL
 cameraSchema.methods.getFullRtspUrl = function () {
-  // Clean the IP address - remove any existing rtsp:// prefix
-  let cleanIp = this.ip_address;
-  if (cleanIp && cleanIp.startsWith("rtsp://")) {
-    cleanIp = cleanIp.replace(/^rtsp:\/\//, "");
-  }
-
-  // Build RTSP URL based on camera type
   const auth =
     this.username && this.password ? `${this.username}:${this.password}@` : "";
+
+  // Check if ip_address is already a full RTSP URL
+  if (this.ip_address && this.ip_address.startsWith("rtsp://")) {
+    // If auth needs to be injected, do it carefully
+    if (auth) {
+      return this.ip_address.replace("rtsp://", `rtsp://${auth}`);
+    }
+    return this.ip_address;
+  }
+
+  // If not a full URL, construct it from parts
+  const cleanIp = this.ip_address;
   const port = this.rtsp_port || 554;
-  
-  // Use custom rtsp_path if provided, otherwise use default
   const path = this.rtsp_path || this.getDefaultRtspPath();
 
   const constructedUrl = `rtsp://${auth}${cleanIp}:${port}${path}`;
   console.log("Constructed RTSP URL:", constructedUrl);
-  console.log("Using path:", path);
   
   return constructedUrl;
 };
