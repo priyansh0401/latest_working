@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import api, { camerasAPI } from "@/lib/api";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -111,26 +112,7 @@ export default function AddCameraPage() {
 
       console.log("Testing connection with URL:", rtspUrl);
 
-      // Get token from localStorage
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) {
-        throw new Error("Authentication required. Please login again.");
-      }
-
-      const response = await fetch("/api/stream/test", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ url: rtspUrl }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to test connection");
-      }
+      await api.post("/stream/test", { url: rtspUrl });
 
       toast({
         title: "Success",
@@ -140,7 +122,10 @@ export default function AddCameraPage() {
       console.error("Error testing connection:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to test camera connection",
+        description:
+          error.response?.data?.error ||
+          error.message ||
+          "Failed to test camera connection",
         variant: "destructive",
       });
     } finally {
@@ -151,51 +136,22 @@ export default function AddCameraPage() {
   const onSubmit = async (data: FormValues) => {
     try {
       setIsSubmitting(true);
-      console.log("Submitting camera data:", data);
-
-      // Validate form data
       const validatedData = formSchema.parse(data);
-      console.log("Validated data:", validatedData);
-
-      // Get token from localStorage
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) {
-        throw new Error("Authentication required. Please login again.");
-      }
-
-      // Create camera
-      const response = await fetch("/api/cameras", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(validatedData),
-      });
-
-      console.log("Response status:", response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Server error:", errorData);
-        throw new Error(errorData.error || `Server error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log("Camera created successfully:", result);
+      await camerasAPI.create(validatedData);
 
       toast({
         title: "Success",
         description: "Camera added successfully",
       });
-
-      // Redirect to cameras page
       router.push("/dashboard/cameras");
     } catch (error: any) {
       console.error("Error creating camera:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to add camera",
+        description:
+          error.response?.data?.error ||
+          error.message ||
+          "Failed to add camera",
         variant: "destructive",
       });
     } finally {

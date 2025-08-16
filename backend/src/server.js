@@ -1,3 +1,5 @@
+// Corrected content for backend/src/server.js
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -10,18 +12,12 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors({
-    origin: process.env.NODE_ENV === 'production' 
-        ? 'https://your-production-domain.com' 
-        : 'http://localhost:3000',
-    credentials: true
-}));
+app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
 const connectDB = async () => {
     try {
-        // Use provided MongoDB Atlas URI or fallback to local
         const mongoURI = process.env.MONGODB_URI;
         await mongoose.connect(mongoURI, {
             useNewUrlParser: true,
@@ -45,128 +41,104 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 
 // Camera routes
-app.get("/cameras", async (req, res) => {
+app.get("/api/cameras", async (req, res) => {
   try {
-    console.log("Getting all cameras")
-    const cameras = await Camera.find()
-    console.log("Found cameras:", cameras)
-    res.json(cameras)
+    const cameras = await Camera.find();
+    res.json(cameras);
   } catch (error) {
-    console.error("Error getting cameras:", error)
-    res.status(500).json({ error: "Failed to get cameras" })
+    res.status(500).json({ error: "Failed to get cameras" });
   }
-})
+});
 
-app.get("/cameras/:id", async (req, res) => {
+app.get("/api/cameras/:id", async (req, res) => {
   try {
-    const { id } = req.params
-    console.log("Getting camera by ID:", id)
-    
+    const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid camera ID format" })
+      return res.status(400).json({ error: "Invalid camera ID format" });
     }
-    
-    const camera = await Camera.findById(id)
-    console.log("Found camera:", camera)
-    
+    const camera = await Camera.findById(id);
     if (!camera) {
-      console.log("Camera not found")
-      return res.status(404).json({ error: "Camera not found" })
+      return res.status(404).json({ error: "Camera not found" });
     }
-    
-    res.json(camera)
+    res.json(camera);
   } catch (error) {
-    console.error("Error getting camera:", error)
-    res.status(500).json({ error: "Failed to get camera" })
+    res.status(500).json({ error: "Failed to get camera" });
   }
-})
+});
 
-app.post("/cameras", async (req, res) => {
+app.post("/api/cameras", async (req, res) => {
   try {
-    console.log("Creating camera with data:", req.body)
-    const camera = new Camera(req.body)
-    await camera.save()
-    console.log("Camera created:", camera)
-    res.status(201).json(camera)
+    const { name, ip_address, location } = req.body;
+
+    if (!name || !ip_address || !location) {
+      return res.status(400).json({ error: "Missing required camera fields" });
+    }
+
+    const newCamera = new Camera({ name, ip_address, location });
+
+    const streamingServerUrl = process.env.STREAMING_SERVER_URL;
+    if (streamingServerUrl) {
+      newCamera.stream_url = `${streamingServerUrl}/live/${newCamera._id}/index.m3u8`;
+    }
+
+    await newCamera.save();
+    res.status(201).json(newCamera);
   } catch (error) {
-    console.error("Error creating camera:", error)
-    res.status(500).json({ error: "Failed to create camera" })
+    res.status(500).json({ error: "Failed to create camera" });
   }
-})
+});
 
-app.put("/cameras/:id", async (req, res) => {
+app.put("/api/cameras/:id", async (req, res) => {
   try {
-    const { id } = req.params
-    console.log("Updating camera:", id, "with data:", req.body)
-    
+    const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid camera ID format" })
+      return res.status(400).json({ error: "Invalid camera ID format" });
     }
-    
-    const camera = await Camera.findByIdAndUpdate(id, req.body, { new: true })
-    console.log("Updated camera:", camera)
-    
+    const camera = await Camera.findByIdAndUpdate(id, req.body, { new: true });
     if (!camera) {
-      console.log("Camera not found")
-      return res.status(404).json({ error: "Camera not found" })
+      return res.status(404).json({ error: "Camera not found" });
     }
-    
-    res.json(camera)
+    res.json(camera);
   } catch (error) {
-    console.error("Error updating camera:", error)
-    res.status(500).json({ error: "Failed to update camera" })
+    res.status(500).json({ error: "Failed to update camera" });
   }
-})
+});
 
-app.delete("/cameras/:id", async (req, res) => {
+app.delete("/api/cameras/:id", async (req, res) => {
   try {
-    const { id } = req.params
-    console.log("Deleting camera:", id)
-    
+    const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid camera ID format" })
+      return res.status(400).json({ error: "Invalid camera ID format" });
     }
-    
-    const camera = await Camera.findByIdAndDelete(id)
-    console.log("Deleted camera:", camera)
-    
+    const camera = await Camera.findByIdAndDelete(id);
     if (!camera) {
-      console.log("Camera not found")
-      return res.status(404).json({ error: "Camera not found" })
+      return res.status(404).json({ error: "Camera not found" });
     }
-    
-    res.json({ message: "Camera deleted" })
+    res.json({ message: "Camera deleted" });
   } catch (error) {
-    console.error("Error deleting camera:", error)
-    res.status(500).json({ error: "Failed to delete camera" })
+    res.status(500).json({ error: "Failed to delete camera" });
   }
-})
+});
 
 // Stream endpoint
-app.get("/stream/:id", async (req, res) => {
+app.get("/api/stream/:id", async (req, res) => {
   try {
-    const { id } = req.params
-    
+    const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid camera ID format" })
+      return res.status(400).json({ error: "Invalid camera ID format" });
     }
-    
-    const camera = await Camera.findById(id)
+    const camera = await Camera.findById(id);
     if (!camera) {
-      return res.status(404).json({ error: "Camera not found" })
+      return res.status(404).json({ error: "Camera not found" });
     }
-    
     if (!camera.stream_url) {
-      return res.status(400).json({ error: "Camera stream URL not configured" })
+      return res.status(400).json({ error: "Camera stream URL not configured" });
     }
-    
-    // Return the stream URL for the frontend to handle
-    res.json({ stream_url: camera.stream_url })
+    res.json({ streamUrl: camera.stream_url });
   } catch (error) {
-    console.error("Error getting stream:", error)
-    res.status(500).json({ error: "Failed to get stream" })
+    res.status(500).json({ error: "Failed to get stream" });
   }
-})
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -186,7 +158,4 @@ app.use((err, req, res, next) => {
     });
 });
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-}); 
+module.exports = app;

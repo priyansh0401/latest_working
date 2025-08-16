@@ -30,12 +30,21 @@ userSchema.methods.comparePassword = async function (candidatePassword: string) 
 const User = mongoose.models.User || mongoose.model("User", userSchema)
 
 // Generate JWT token
+const jwtSecret = process.env.JWT_SECRET
+
+if (!jwtSecret) {
+  console.error("JWT_SECRET is not defined in the environment variables.")
+  // In a real production environment, you should throw an error
+  // or have a more robust configuration management system.
+}
+
 function generateToken(userId: string) {
-  return jwt.sign(
-    { userId },
-    process.env.JWT_SECRET || "your-secret-key",
-    { expiresIn: "7d" }
-  )
+  if (!jwtSecret) {
+    // This check is redundant if the server fails to start,
+    // but it's a good safeguard.
+    throw new Error("JWT secret is not configured.")
+  }
+  return jwt.sign({ userId }, jwtSecret, { expiresIn: "7d" })
 }
 
 export async function POST(req: NextRequest) {

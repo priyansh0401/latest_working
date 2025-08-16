@@ -2,32 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/*.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
+      "src": "src/server.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/health",
-      "dest": "api/health.py"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "src/server.js"
     }
-  ],
-  "env": {
-    "MONGODB_URI": "mongodb+srv://pgoelbe22:imemyself@cluster0.5exvebt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
-    "MONGODB_NAME": "guardian_eye",
-    "SECRET_KEY": "",
-    "DEBUG": "False"
-  }
+  ]
 }

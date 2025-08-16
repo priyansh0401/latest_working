@@ -4,16 +4,23 @@ import { Camera } from "@/models/camera";
 import jwt from "jsonwebtoken";
 
 // Function to verify JWT token and get user
+const jwtSecret = process.env.JWT_SECRET;
+
 async function verifyToken(authHeader: string | null) {
+  if (!jwtSecret) {
+    console.error("JWT_SECRET is not defined in the environment variables.");
+    throw new Error("JWT secret is not configured.");
+  }
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
 
   const token = authHeader.substring(7);
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+    const decoded = jwt.verify(token, jwtSecret) as any;
     return { id: decoded.userId }; // Map userId to id for consistency
   } catch (error) {
+    console.error("JWT verification failed:", error);
     return null;
   }
 }
